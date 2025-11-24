@@ -318,7 +318,7 @@ export const CodeEditor = () => {
                     minHeight: "200px",
                     border: "none",
                   }}
-                  sandbox="allow-scripts"
+                  sandbox="allow-scripts allow-same-origin"
                 />
               </Paper>
             </Card.Section>
