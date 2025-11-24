@@ -1,7 +1,5 @@
+import { CodeEditor } from './components/CodeEditor'
+
 export default function Home() {
-  return (
-    <main>
-      <h1>Code Editor</h1>
-    </main>
-  )
+  return <CodeEditor />
 }
