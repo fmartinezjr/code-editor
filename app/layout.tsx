@@ -1,9 +1,13 @@
 import type { Metadata } from 'next'
+import { MantineProvider } from '@mantine/core'
+import { Notifications } from '@mantine/notifications'
+import '@mantine/core/styles.css'
+import '@mantine/notifications/styles.css'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Code Editor',
-  description: 'A web-based code editor',
+  title: 'JavaScript Code Editor',
+  description: 'A web-based JavaScript code editor with live execution',
 }
 
 export default function RootLayout({
@@ -13,7 +17,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <MantineProvider>
+          <Notifications />
+          {children}
+        </MantineProvider>
+      </body>
     </html>
   )
 }
