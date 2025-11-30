@@ -13,7 +13,9 @@ import {
   Paper,
 } from "@mantine/core";
 import { Play, RotateCcw, Trash2, Code2 } from "lucide-react";
-import Editor from "@monaco-editor/react";
+import Editor, { loader } from "@monaco-editor/react";
+
+loader.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs' } });
 
 const DEFAULT_CODE = `
 console.log("Hello, World!");
