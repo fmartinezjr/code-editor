@@ -14,78 +14,40 @@ import {
 } from "@mantine/core";
 import { Play, RotateCcw, Trash2, Code2 } from "lucide-react";
 import Editor from "@monaco-editor/react";
-import { notifications } from "@mantine/notifications";
 
 const DEFAULT_CODE = `
 console.log("Hello, World!");
 `;
 
 export const CodeEditor = () => {
-  const [code, setCode] = useState<string>(DEFAULT_CODE);
+  const [code, setCode] = useState(DEFAULT_CODE);
   const [output, setOutput] = useState<string[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
-
-  const handleEditorChange = (value: string | undefined) => {
-    setCode(value || "");
-  };
 
   const runCode = () => {
-    setIsRunning(true);
-    setOutput([]);
-
-    const originalLog = console.log;
-    const originalError = console.error;
-    const originalWarn = console.warn;
-
     const logs: string[] = [];
-
-    console.log = (...args: any[]) => {
-      originalLog(...args);
-      logs.push(`[LOG] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+    const capture = (level: string) => (...args: any[]) => {
+      logs.push(`[${level}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`);
     };
 
-    console.error = (...args: any[]) => {
-      originalError(...args);
-      logs.push(`[ERROR] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
-    };
-
-    console.warn = (...args: any[]) => {
-      originalWarn(...args);
-      logs.push(`[WARN] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
-    };
+    const [log, error, warn] = [console.log, console.error, console.warn];
+    console.log = capture('LOG');
+    console.error = capture('ERROR');
+    console.warn = capture('WARN');
 
     try {
       eval(code);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logs.push(`[ERROR] ${msg}`);
+    } catch (e) {
+      logs.push(`[ERROR] ${e instanceof Error ? e.message : e}`);
     }
 
-    console.log = originalLog;
-    console.error = originalError;
-    console.warn = originalWarn;
-
+    [console.log, console.error, console.warn] = [log, error, warn];
     setOutput(logs);
-    setIsRunning(false);
   };
 
-  const clearConsole = () => {
-    setOutput([]);
-    notifications.show({
-      title: "Console Cleared",
-      message: "Output has been cleared",
-      color: "blue",
-    });
-  };
-
+  const clearConsole = () => setOutput([]);
   const resetCode = () => {
     setCode(DEFAULT_CODE);
     setOutput([]);
-    notifications.show({
-      title: "Code Reset",
-      message: "Editor has been reset to default code",
-      color: "blue",
-    });
   };
 
 
@@ -102,31 +64,13 @@ export const CodeEditor = () => {
         </Box>
 
         <Group gap="md">
-          <Button
-            leftSection={<Play size={18} />}
-            onClick={runCode}
-            loading={isRunning}
-            color="green"
-            size="md"
-          >
+          <Button leftSection={<Play size={18} />} onClick={runCode} color="green">
             Run Code
           </Button>
-          <Button
-            leftSection={<Trash2 size={18} />}
-            onClick={clearConsole}
-            variant="light"
-            color="blue"
-            size="md"
-          >
+          <Button leftSection={<Trash2 size={18} />} onClick={clearConsole} variant="light">
             Clear Console
           </Button>
-          <Button
-            leftSection={<RotateCcw size={18} />}
-            onClick={resetCode}
-            variant="light"
-            color="gray"
-            size="md"
-          >
+          <Button leftSection={<RotateCcw size={18} />} onClick={resetCode} variant="light" color="gray">
             Reset Code
           </Button>
         </Group>
@@ -151,17 +95,12 @@ export const CodeEditor = () => {
                 height="550px"
                 defaultLanguage="javascript"
                 value={code}
-                onChange={handleEditorChange}
+                onChange={(value) => setCode(value || "")}
                 theme="vs-dark"
                 options={{
                   minimap: { enabled: false },
                   fontSize: 14,
-                  lineNumbers: "on",
-                  roundedSelection: true,
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
                   tabSize: 2,
-                  wordWrap: "on",
                 }}
               />
             </Card.Section>
@@ -180,30 +119,19 @@ export const CodeEditor = () => {
             </Card.Section>
 
             <Card.Section p="md">
-              <Paper
-                p="md"
-                style={{
-                  backgroundColor: "#1e1e1e",
-                  color: "#d4d4d4",
-                  fontFamily: "monospace",
-                  fontSize: "13px",
-                  minHeight: "200px",
-                  maxHeight: "500px",
-                  overflowY: "auto",
-                }}
-              >
+              <Paper p="md" style={{
+                backgroundColor: "#1e1e1e",
+                color: "#d4d4d4",
+                fontFamily: "monospace",
+                fontSize: "13px",
+                minHeight: "500px",
+                maxHeight: "500px",
+                overflowY: "auto",
+              }}>
                 {output.length === 0 ? (
-                  <Text c="dimmed" size="sm" fs="italic">
-                    Console output will appear here...
-                  </Text>
+                  <Text c="dimmed" size="sm">Console output will appear here...</Text>
                 ) : (
-                  <Stack gap="xs">
-                    {output.map((line, index) => (
-                      <div key={index} style={{ whiteSpace: "pre-wrap" }}>
-                        {line}
-                      </div>
-                    ))}
-                  </Stack>
+                  output.map((line, i) => <div key={i}>{line}</div>)
                 )}
               </Paper>
             </Card.Section>
