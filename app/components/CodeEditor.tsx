@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import {
   Container,
   Title,
@@ -11,7 +11,6 @@ import {
   Group,
   Box,
   Paper,
-  Divider,
 } from "@mantine/core";
 import { Play, RotateCcw, Trash2, Code2 } from "lucide-react";
 import Editor from "@monaco-editor/react";
@@ -25,7 +24,6 @@ export const CodeEditor = () => {
   const [code, setCode] = useState<string>(DEFAULT_CODE);
   const [output, setOutput] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const handleEditorChange = (value: string | undefined) => {
     setCode(value || "");
@@ -35,108 +33,40 @@ export const CodeEditor = () => {
     setIsRunning(true);
     setOutput([]);
 
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    const logs: string[] = [];
+
+    console.log = (...args: any[]) => {
+      originalLog(...args);
+      logs.push(`[LOG] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+    };
+
+    console.error = (...args: any[]) => {
+      originalError(...args);
+      logs.push(`[ERROR] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+    };
+
+    console.warn = (...args: any[]) => {
+      originalWarn(...args);
+      logs.push(`[WARN] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`);
+    };
+
     try {
-      // Create a new iframe to run the code in isolation
-      if (iframeRef.current) {
-        const iframe = iframeRef.current;
-        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-
-        if (iframeDoc) {
-          // Clear previous content
-          iframeDoc.open();
-          iframeDoc.write(`
-            <!DOCTYPE html>
-            <html>
-              <head>
-                <style>
-                  body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-                    padding: 16px;
-                    margin: 0;
-                    color: #333;
-                    background: white;
-                  }
-                  h1, h2, h3 { margin-top: 0; }
-                </style>
-              </head>
-              <body>
-                <script>
-                  // Capture console methods
-                  const originalLog = console.log;
-                  const originalError = console.error;
-                  const originalWarn = console.warn;
-                  const originalInfo = console.info;
-
-                  const sendMessage = (type, ...args) => {
-                    const message = args.map(arg => {
-                      if (typeof arg === 'object') {
-                        try {
-                          return JSON.stringify(arg, null, 2);
-                        } catch (e) {
-                          return String(arg);
-                        }
-                      }
-                      return String(arg);
-                    }).join(' ');
-
-                    window.parent.postMessage({
-                      type: 'console',
-                      level: type,
-                      message
-                    }, '*');
-                  };
-
-                  console.log = (...args) => {
-                    originalLog.apply(console, args);
-                    sendMessage('log', ...args);
-                  };
-
-                  console.error = (...args) => {
-                    originalError.apply(console, args);
-                    sendMessage('error', ...args);
-                  };
-
-                  console.warn = (...args) => {
-                    originalWarn.apply(console, args);
-                    sendMessage('warn', ...args);
-                  };
-
-                  console.info = (...args) => {
-                    originalInfo.apply(console, args);
-                    sendMessage('info', ...args);
-                  };
-
-                  // Capture errors
-                  window.onerror = (message, source, lineno, colno, error) => {
-                    console.error(\`Error at line \${lineno}: \${message}\`);
-                    return true;
-                  };
-
-                  // Run user code
-                  try {
-                    ${code}
-                  } catch (error) {
-                    console.error('Runtime Error:', error.message);
-                  }
-                </script>
-              </body>
-            </html>
-          `);
-          iframeDoc.close();
-        }
-      }
+      eval(code);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error occurred";
-      setOutput((prev) => [...prev, `❌ Error: ${errorMessage}`]);
-      notifications.show({
-        title: "Execution Error",
-        message: errorMessage,
-        color: "red",
-      });
-    } finally {
-      setIsRunning(false);
+      const msg = error instanceof Error ? error.message : String(error);
+      logs.push(`[ERROR] ${msg}`);
     }
+
+    console.log = originalLog;
+    console.error = originalError;
+    console.warn = originalWarn;
+
+    setOutput(logs);
+    setIsRunning(false);
   };
 
   const clearConsole = () => {
@@ -158,22 +88,6 @@ export const CodeEditor = () => {
     });
   };
 
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === "console") {
-        const { level, message } = event.data;
-        let prefix = "[INFO]";
-        if (level === "error") prefix = "[ERROR]";
-        else if (level === "warn") prefix = "[WARN]";
-        else if (level === "log") prefix = "[LOG]";
-
-        setOutput((prev) => [...prev, `${prefix} ${message}`]);
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  });
 
   return (
     <Container size="xl" py="xl">
@@ -291,35 +205,6 @@ export const CodeEditor = () => {
                     ))}
                   </Stack>
                 )}
-              </Paper>
-            </Card.Section>
-
-            <Divider my="sm" />
-
-            <Card.Section p="md">
-              <Text fw={600} size="sm" mb="xs">
-                Visual Output (DOM)
-              </Text>
-              <Paper
-                withBorder
-                style={{
-                  minHeight: "200px",
-                  maxHeight: "250px",
-                  overflowY: "auto",
-                  backgroundColor: "white",
-                }}
-              >
-                <iframe
-                  ref={iframeRef}
-                  title="Code Output"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    minHeight: "200px",
-                    border: "none",
-                  }}
-                  sandbox="allow-scripts allow-same-origin"
-                />
               </Paper>
             </Card.Section>
           </Card>
